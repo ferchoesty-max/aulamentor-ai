@@ -1,0 +1,19 @@
+{
+  "name": "aulamentor-ai-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:api": "python apps/api/main.py",
+    "test:api": "pytest tests",
+    "dev:web": "npm run dev -w @aulamentor/web",
+    "build:web": "npm run generate -w @aulamentor/web",
+    "typecheck": "npm run typecheck -w @aulamentor/web"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
