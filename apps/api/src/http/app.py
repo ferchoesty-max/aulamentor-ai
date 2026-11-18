@@ -6,6 +6,7 @@ from src.auth.security import authenticate_request
 from src.firebase.client import ensure_firebase
 from src.http.routes_health import health_bp
 from src.http.routes_auth import auth_bp
+from src.http.mentor_routes import register_mentor_routes
 
 def create_app(testing: bool = False) -> Flask:
     app = Flask(__name__)
@@ -25,5 +26,6 @@ def create_app(testing: bool = False) -> Flask:
 
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp)
+    register_mentor_routes(app)
 
     return app
