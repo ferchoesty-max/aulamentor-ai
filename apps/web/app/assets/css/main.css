@@ -1,0 +1,15 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: emerald --default, dark;
+}
+
+@layer base {
+  body {
+    @apply bg-base-200 text-base-content antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+.cb-card {
+  @apply bg-base-100 rounded-box border border-base-300 shadow-xs;
+}
