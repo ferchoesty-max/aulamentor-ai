@@ -6,6 +6,7 @@
     "apps/web"
   ],
   "scripts": {
+    "dev:firebase": "firebase emulators:start --only auth,firestore",
     "dev:api": "python apps/api/main.py",
     "test:api": "pytest tests",
     "dev:web": "npm run dev -w @aulamentor/web",

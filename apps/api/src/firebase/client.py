@@ -18,7 +18,7 @@ class LocalEmulatorCredentials(credentials.Base):
 def is_emulator_mode() -> bool:
     auth_host = os.environ.get('FIREBASE_AUTH_EMULATOR_HOST', '').strip()
     db_host = os.environ.get('FIRESTORE_EMULATOR_HOST', '').strip()
-    return bool(auth_host and db_host)
+    return bool(auth_host or db_host)
 
 @lru_cache(maxsize=1)
 def ensure_firebase():
