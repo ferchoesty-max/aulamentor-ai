@@ -77,27 +77,56 @@ aulamentor-ai/
 ### Requisitos Previos
 - Node.js version 20 o superior y npm version 10 o superior.
 - Python version 3.11 o superior con pip.
+- Firebase CLI (`firebase-tools`) y Java 17+ si se ejecuta con Firebase Emulators en local.
 
 ### Preparacion de Variables
-Crear el archivo `.env` en la raiz tomando como referencia `.env.example`:
+Crear los archivos `.env` en la raiz y en `apps/web/.env` tomando como referencia `.env.example` (sin subir secretos al repositorio):
 
 ```bash
 cp .env.example .env
+cp .env.example apps/web/.env
 ```
 
-### Ejecucion del Backend
+### Ejecucion en Local (Emuladores + Backend + Frontend)
+1. **Emuladores de Firebase (Auth + Firestore + UI en `http://127.0.0.1:4000`):**
 ```bash
-cd apps/api
-pip install -r requirements.txt
-python main.py
+npm run dev:firebase
 ```
-El servicio quedara disponible en `http://localhost:8000`. Verificacion de estado:
+2. **Backend Flask (`http://127.0.0.1:8000`):**
 ```bash
-curl http://localhost:8000/api/v1/health
+pip install -r apps/api/requirements.txt
+npm run dev:api
+```
+Verificacion de estado:
+```bash
+curl http://127.0.0.1:8000/api/v1/health
+```
+3. **Cargar datos semilla ficticios (1 curso y 9 preguntas en Firestore):**
+```bash
+python apps/api/scripts/seed_courses.py --teacher-uid mock-teacher-uid --teacher-name "Usuario Teacher"
+```
+4. **Frontend Nuxt 4 (`http://localhost:3000`):**
+```bash
+npm install
+npm run dev:web
 ```
 
-### Ejecucion de Pruebas Automatizadas
+### Ejecucion de Pruebas y Verificaciones
 Desde la raiz del proyecto:
 ```bash
-pytest apps/api/tests
+python -m pytest tests -v
+npm run typecheck
+npm run build:web
 ```
+
+---
+
+## 7. Cuentas de Prueba Ficticias (Entorno Demo / Emuladores)
+
+En `/login` estan disponibles los botones de **Acceso Demo Rapido** (o mediante el header `Authorization: Bearer <token>` hacia la API), asi como el registro de cuentas ficticias en Firebase Auth Emulator:
+
+| Rol | Cuenta Ficticia | Contrasena Demo (Auth Emulator) | Token Demo API |
+|---|---|---|---|
+| **Docente** | `docente@aulamentor.test` | `Docente123!` | `Bearer mock-teacher` (`uid: mock-teacher-uid`) |
+| **Estudiante** | `alumno1@aulamentor.test` | `Alumno123!` | `Bearer mock-student` (`uid: mock-student-uid`) |
+| **Administrador** | `admin@aulamentor.test` | `Admin123!` | `Bearer mock-admin` (`uid: mock-admin-uid`) |

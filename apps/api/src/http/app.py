@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
 from src.core.errors import register_error_handlers
@@ -9,6 +10,9 @@ from src.http.routes_auth import auth_bp
 from src.http.mentor_routes import register_mentor_routes
 
 def create_app(testing: bool = False) -> Flask:
+    if not testing:
+        load_dotenv()
+
     app = Flask(__name__)
     app.config.update(
         TESTING=testing,
