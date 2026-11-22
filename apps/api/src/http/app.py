@@ -4,14 +4,16 @@ from flask import Flask
 from flask_cors import CORS
 from src.core.errors import register_error_handlers
 from src.auth.security import authenticate_request
-from src.firebase.client import ensure_firebase
+from src.firebase.client import ensure_firebase, sanitize_emulator_env
 from src.http.routes_health import health_bp
 from src.http.routes_auth import auth_bp
+from src.http.routes_adaptive import adaptive_bp
 from src.http.mentor_routes import register_mentor_routes
 
 def create_app(testing: bool = False) -> Flask:
     if not testing:
         load_dotenv()
+        sanitize_emulator_env()
 
     app = Flask(__name__)
     app.config.update(
@@ -30,6 +32,7 @@ def create_app(testing: bool = False) -> Flask:
 
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(adaptive_bp)
     register_mentor_routes(app)
 
     return app
