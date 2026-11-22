@@ -1,7 +1,9 @@
 import os
 from dotenv import load_dotenv
+from src.firebase.client import sanitize_emulator_env
 
 load_dotenv()
+sanitize_emulator_env()
 
 PROJECT_ID = os.getenv('FIREBASE_PROJECT_ID', 'aulamentor-ai-demo').strip()
 PORT = int(os.getenv('PORT', '8000'))

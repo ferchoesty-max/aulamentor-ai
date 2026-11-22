@@ -5,6 +5,16 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from google.auth.credentials import AnonymousCredentials
 
+EMULATOR_ENV_VARS = ('FIREBASE_AUTH_EMULATOR_HOST', 'FIRESTORE_EMULATOR_HOST')
+
+
+def sanitize_emulator_env() -> None:
+    """Elimina variables *_EMULATOR_HOST vacías para no confundir a los SDKs de Google."""
+    for key in EMULATOR_ENV_VARS:
+        if key in os.environ and not os.environ[key].strip():
+            os.environ.pop(key, None)
+
+
 class LocalEmulatorCredentials(credentials.Base):
     def __init__(self, project_id: str):
         self.project_id = project_id
@@ -16,12 +26,14 @@ class LocalEmulatorCredentials(credentials.Base):
         return self.project_id
 
 def is_emulator_mode() -> bool:
+    sanitize_emulator_env()
     auth_host = os.environ.get('FIREBASE_AUTH_EMULATOR_HOST', '').strip()
     db_host = os.environ.get('FIRESTORE_EMULATOR_HOST', '').strip()
     return bool(auth_host or db_host)
 
 @lru_cache(maxsize=1)
 def ensure_firebase():
+    sanitize_emulator_env()
     project_id = os.getenv('FIREBASE_PROJECT_ID', 'aulamentor-ai-demo').strip()
     try:
         app = firebase_admin.get_app()
