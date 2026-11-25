@@ -1,6 +1,6 @@
 from src.core.errors import ApiError
 from src.services.access import ROLE_ADMIN, ROLE_STUDENT, ROLE_TEACHER, assert_course_manager, can_manage_course
-from src.services.repos import courses_repo, enrollments_repo
+from src.services.repos import courses_repo, enrollments_repo, questions_repo
 
 def fetch_course(course_id: str) -> dict:
     course = courses_repo.find_by_id(course_id)
@@ -47,3 +47,27 @@ def create_course(user: dict, payload) -> dict:
             "status": "active",
         }
     )
+
+def update_course(user: dict, course_id: str, payload) -> dict:
+    course = fetch_course(course_id)
+    assert_course_manager(user, course)
+    changes = payload.model_dump(exclude_unset=True)
+    if "topics" in changes:
+        removed = set(course.get("topics", [])) - set(changes["topics"])
+        in_use = {
+            q["topic"]
+            for q in questions_repo.where({"course_id": course_id})
+            if q.get("active", True) and q.get("topic") in removed
+        }
+        if in_use:
+            raise ApiError(
+                f"No puedes quitar temas con preguntas activas: {', '.join(sorted(in_use))}",
+                409,
+                "TOPIC_IN_USE",
+            )
+    return courses_repo.update(course_id, changes)
+
+def archive_course(user: dict, course_id: str) -> dict:
+    course = fetch_course(course_id)
+    assert_course_manager(user, course)
+    return courses_repo.update(course_id, {"status": "archived"})
