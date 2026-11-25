@@ -7,7 +7,6 @@
     <input id="app-drawer" type="checkbox" class="drawer-toggle" />
 
     <div class="drawer-content flex flex-col">
-      <!-- Navbar móvil -->
       <header class="navbar bg-base-100 border-b border-base-300 lg:hidden px-4">
         <div class="flex-none">
           <label for="app-drawer" class="btn btn-square btn-ghost">
@@ -21,13 +20,11 @@
         </div>
       </header>
 
-      <!-- Contenido principal -->
       <main class="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
         <slot />
       </main>
     </div>
 
-    <!-- Sidebar lateral -->
     <aside class="drawer-side z-20">
       <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
       <div class="w-64 min-h-full bg-base-100 border-r border-base-300 flex flex-col justify-between p-4">
@@ -64,6 +61,11 @@
               <li>
                 <NuxtLink to="/student/courses" active-class="active font-semibold">
                   Catálogo de Cursos
+                </NuxtLink>
+              </li>
+              <li>
+                <NuxtLink to="/student/progress" active-class="active font-semibold">
+                  Progreso y Recomendaciones
                 </NuxtLink>
               </li>
             </template>

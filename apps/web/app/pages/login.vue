@@ -40,11 +40,11 @@
           <input v-model="password" type="password" required minlength="6" placeholder="••••••••" class="input input-bordered w-full" />
         </fieldset>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Rol de acceso</legend>
+        <fieldset v-if="mode === 'register'" class="fieldset">
+          <legend class="fieldset-legend">Rol de la cuenta</legend>
           <select v-model="selectedRole" class="select select-bordered w-full">
             <option value="teacher">Docente (Gestión de cursos y preguntas)</option>
-            <option value="student">Estudiante (Catálogo y diagnósticos)</option>
+            <option value="student">Estudiante (Catálogo y exámenes)</option>
           </select>
         </fieldset>
 
@@ -53,17 +53,6 @@
           {{ mode === 'login' ? 'Entrar a la plataforma' : 'Registrar cuenta' }}
         </button>
       </form>
-
-      <div class="divider text-xs text-base-content/50 my-2">ACCESO DEMO RÁPIDO (TOKENS MOCK)</div>
-
-      <div class="grid grid-cols-2 gap-3">
-        <button class="btn btn-outline btn-sm" :disabled="authStore.loading" @click="handleMockLogin('teacher')">
-          Demo Docente
-        </button>
-        <button class="btn btn-outline btn-secondary btn-sm" :disabled="authStore.loading" @click="handleMockLogin('student')">
-          Demo Estudiante
-        </button>
-      </div>
     </div>
   </div>
 </template>
@@ -87,22 +76,9 @@ const handleSubmit = async () => {
   try {
     if (mode.value === 'login') {
       await authStore.loginWithEmail(email.value, password.value)
-      if (authStore.user && authStore.user.role !== selectedRole.value) {
-        await authStore.updateRole(selectedRole.value)
-      }
     } else {
       await authStore.registerWithEmail(email.value, password.value, displayName.value, selectedRole.value)
     }
-    await redirectByRole()
-  } catch (err: any) {
-    errorMsg.value = extractApiError(err).message
-  }
-}
-
-const handleMockLogin = async (role: 'teacher' | 'student') => {
-  errorMsg.value = ''
-  try {
-    await authStore.loginMock(role)
     await redirectByRole()
   } catch (err: any) {
     errorMsg.value = extractApiError(err).message
