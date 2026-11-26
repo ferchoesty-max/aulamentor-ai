@@ -11,10 +11,10 @@ Documento de diseño del modelo de datos en **Firebase Cloud Firestore** para el
 | `users` | Perfiles y roles (`teacher`, `student`, `admin`) vinculados a Firebase Auth | **R1** (activa) |
 | `courses` | Cursos publicados por docentes con sus unidades temáticas | **R1** (activa) |
 | `questions` | Banco de preguntas de opción múltiple, dificultad y actividad de refuerzo | **R1** (activa) |
-| `enrollments` | Inscripciones de estudiantes a cursos (`{course_id}_{student_uid}`) | **R2** (reglas/consultas preparadas en R1) |
-| `attempts` | Intentos de evaluación diagnóstica calificados en el servidor | **R2** |
-| `masteryProfiles` | Dominio acumulado por estudiante, curso y tema (`0` a `100`) | **R2** |
-| `recommendations` | Actividades de refuerzo sugeridas con explicación y estado | **R2 / R3** |
+| `enrollments` | Inscripciones de estudiantes a cursos (`{course_id}_{student_uid}`) | **R2** (activa) |
+| `attempts` | Intentos de evaluación diagnóstica calificados en el servidor | **R2** (activa) |
+| `masteryProfiles` | Dominio acumulado por estudiante, curso y tema (`0` a `100`) | **R2** (activa) |
+| `recommendations` | Actividades de refuerzo sugeridas con explicación y estado | **R2** (activa; asignación manual en R3) |
 
 ---
 
@@ -58,17 +58,37 @@ Documento de diseño del modelo de datos en **Firebase Cloud Firestore** para el
 - **Regla de negocio:** Impide inscripciones duplicadas usando clave compuesta `{course_id}_{student_uid}` y bloquea lectura de preguntas/exámenes si el alumno no está inscrito (`403 NOT_ENROLLED`).
 
 ### 2.5 `attempts/{attemptId}` *(R2)*
-- **Campos:** `course_id`, `student_uid`, `answers`, `score` (`0..100`), `topic_breakdown` (aciertos, errores y dificultad por tema), `attempt_number`, `submitted_at`.
+- **Campos:** `course_id`, `student_uid`, `attempt_number`, `answers` (`[{question_id, topic, difficulty, selected_index, is_correct}]`), `score` (`0..100` ponderado por dificultad), `total_questions`, `correct_count`, `topic_breakdown` (`[{topic, correct, total, accuracy, weighted_accuracy, difficulties}]`), `submitted_at`.
 
-### 2.6 `masteryProfiles/{profileId}` *(R2)*
-- **Campos:** `course_id`, `student_uid`, `topic`, `mastery_score` (`0..100`), `level` (`"requiere_refuerzo" | "en_progreso" | "dominado"`), `total_attempts`, `accuracy_rate`, `updated_at`.
+### 2.6 `masteryProfiles/{courseId}_{studentUid}_{slug}_{hash}` *(R2)*
+- **Campos:** `course_id`, `student_uid`, `topic`, `mastery_score` (`0..100`), `level` (`"requiere_refuerzo" | "en_progreso" | "dominado"`), `total_attempts`, `accuracy_rate`, `weighted_accuracy`, `last_attempt_id`, `updated_at`.
 
 ### 2.7 `recommendations/{recommendationId}` *(R2 / R3)*
-- **Campos:** `course_id`, `student_uid`, `attempt_id`, `topic`, `recommended_level` (`1 | 2 | 3`), `activity_title`, `activity_description`, `explanation` (justificación legible de aciertos/intentos/dificultad), `status` (`"pending" -> "in_progress" -> "completed"`), `created_at`.
+- **Campos:** `course_id`, `student_uid`, `attempt_id`, `topic`, `recommended_level` (`1 | 2 | 3`), `mastery_score`, `mastery_level`, `activity_title`, `activity_description`, `explanation` (justificación legible de aciertos/intentos/dificultad), `status` (`"pending" -> "in_progress" -> "completed"`), `status_updated_by` *(opcional)*, `created_at`, `updated_at`.
 
 ---
 
-## 3. Seguridad e Índices (`firebase/`)
+## 3. Motor Adaptativo Explicable (sin IA comercial)
 
-- **`firebase/firestore.rules`:** Ningún cliente puede escribir directamente en Firestore (`allow write: if false`); todas las escrituras pasan por la API REST en Python con validación Pydantic y verificación de token/rol. Además, los estudiantes no tienen lectura directa sobre `questions` para proteger `correct_index`.
+Implementado en `apps/api/src/services/adaptive_service.py` y ejecutado automáticamente al calificar cada intento (`POST /api/v1/attempts`):
+
+1. **Pesos por dificultad:** nivel `1` (básica) = `1.0`, nivel `2` (media) = `1.5`, nivel `3` (alta) = `2.0`.
+2. **Factor de consistencia por intento (`attempt_number`):** `1.0` en el intento #1, `0.9` en el intento #2 y `max(0.4, 1.0 - 0.15 * (attempt_number - 1))` a partir del intento #3.
+3. **Índice de dominio por tema (`0` a `100`):**
+   `mastery_score = (weighted_accuracy * 70) + (weighted_accuracy * consistency * 30)`
+   donde `weighted_accuracy = earned_weight / total_weight`.
+4. **Clasificación y recomendación generada:**
+   - `< 60`: `requiere_refuerzo` → actividad de nivel `1` (básico/conceptual).
+   - `60 – 84.99`: `en_progreso` → actividad de nivel `2` (intermedio/práctico).
+   - `>= 85`: `dominado` → actividad de nivel `3` (avanzado/reto).
+5. **Endpoints asociados:**
+   - `GET /api/v1/mastery/<course_id>?student_uid=`: perfiles de dominio del estudiante (o de todo el grupo para docente dueño / admin) ordenados por temario.
+   - `GET /api/v1/recommendations?course_id=&status=&student_uid=`: lista recomendaciones filtrables por curso, estado (`pending`, `in_progress`, `completed`) o estudiante.
+   - `PATCH /api/v1/recommendations/<id>/status`: avanza el estado de forma estricta (`pending` → `in_progress` → `completed`; otra transición devuelve `409 INVALID_STATUS_TRANSITION`).
+
+---
+
+## 4. Seguridad e Índices (`firebase/`)
+
+- **`firebase/firestore.rules`:** Ningún cliente puede escribir directamente en Firestore (`allow write: if false`); todas las escrituras pasan por la API REST en Python con validación Pydantic y verificación de token/rol. Para lectura directa: `users` (propio o admin), `courses` (dueño, admin o activos para estudiantes), `questions` (solo docente dueño o admin, protegiendo `correct_index`) y `enrollments`, `attempts`, `masteryProfiles`, `recommendations` (estudiante dueño, docente del curso o admin).
 - **`firebase/firestore.indexes.json`:** Índices compuestos declarados para `questions` (`course_id`, `topic`, `difficulty`), `attempts` (`course_id`, `student_uid`, `submitted_at`) y `enrollments` (`student_uid`, `enrolled_at`).
