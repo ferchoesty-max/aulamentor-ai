@@ -6,7 +6,6 @@ from src.services.repos import enrollments_repo, questions_repo
 PUBLIC_QUESTION_FIELDS = ("id", "course_id", "topic", "difficulty", "statement", "options")
 
 def public_question(question: dict) -> dict:
-    """Versión para el estudiante: NUNCA incluye correct_index ni reinforcement_activity."""
     return {field: question[field] for field in PUBLIC_QUESTION_FIELDS if field in question}
 
 def sort_questions(course: dict, rows: list[dict]) -> list[dict]:
@@ -44,3 +43,24 @@ def create_question(user: dict, course_id: str, payload) -> dict:
     data = payload.model_dump()
     assert_topic_in_course(course, data["topic"])
     return questions_repo.create({**data, "course_id": course_id, "active": True, "created_by": user["uid"]})
+
+def _fetch_question(course_id: str, question_id: str) -> dict:
+    question = questions_repo.find_by_id(question_id)
+    if question is None or question.get("course_id") != course_id:
+        raise ApiError("Pregunta no encontrada", 404, "QUESTION_NOT_FOUND")
+    return question
+
+def update_question(user: dict, course_id: str, question_id: str, payload) -> dict:
+    course = fetch_course(course_id)
+    assert_course_manager(user, course)
+    question = _fetch_question(course_id, question_id)
+    changes = payload.model_dump(exclude_unset=True)
+    if "topic" in changes:
+        assert_topic_in_course(course, changes["topic"])
+    return questions_repo.update(question["id"], changes)
+
+def deactivate_question(user: dict, course_id: str, question_id: str) -> dict:
+    course = fetch_course(course_id)
+    assert_course_manager(user, course)
+    question = _fetch_question(course_id, question_id)
+    return questions_repo.update(question["id"], {"active": False})

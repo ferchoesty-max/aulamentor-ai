@@ -3,6 +3,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ===============================================================
+    // Modelo de Datos y Arquitectura de Seguridad (AulaMentor AI - R2)
+    // ===============================================================
+    //
+    // Todas las escrituras pasan por la API REST en Python usando firebase-admin
+    // (el Admin SDK omite estas reglas), por lo que toda escritura directa desde
+    // clientes está denegada (`allow write: if false;`).
+    //
+    // Colecciones cubiertas:
+    //   1. users/{uid}: uid, email, display_name, role ('teacher'|'student'|'admin'), created_at, updated_at
+    //   2. courses/{courseId}: title, code, description, topics, teacher_uid, teacher_name, status ('active'|'archived'), created_at, updated_at
+    //   3. questions/{questionId}: course_id, topic, difficulty, statement, options, correct_index, reinforcement_activity, active, created_by, created_at, updated_at
+    //   4. enrollments/{enrollmentId}: course_id, student_uid, student_name, status, enrolled_at
+    //   5. attempts/{attemptId}: course_id, student_uid, attempt_number, answers, score, total_questions, correct_count, topic_breakdown, submitted_at
+    //   6. masteryProfiles/{profileId}: course_id, student_uid, topic, mastery_score, level, total_attempts, accuracy_rate, weighted_accuracy, last_attempt_id, updated_at
+    //   7. recommendations/{recommendationId}: course_id, student_uid, attempt_id, topic, recommended_level, mastery_score, mastery_level, activity_title, activity_description, explanation, status, status_updated_by, created_at, updated_at
+    // ===============================================================
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -23,27 +41,65 @@ service cloud.firestore {
 
     function isCourseTeacher(courseId) {
       return hasRole('teacher')
+        && courseId is string
+        && courseId.size() > 0
+        && exists(/databases/$(database)/documents/courses/$(courseId))
         && get(/databases/$(database)/documents/courses/$(courseId)).data.teacher_uid == request.auth.uid;
     }
 
-    // Cada quien lee solo su propio perfil, el admin puede leer todos
+    function canReadCourseStudentResource() {
+      return isSignedIn()
+        && (
+          isAdmin()
+          || isCourseTeacher(resource.data.course_id)
+          || (hasRole('student') && resource.data.student_uid == request.auth.uid)
+        );
+    }
+
+    // Cada quien lee solo su propio perfil; el admin puede leer todos
     match /users/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
       allow write: if false;
     }
 
-    // Docente dueño y admin leen su curso, el estudiante solo ve cursos activos del catálogo
+    // Docente dueño y admin leen su curso; el estudiante solo ve cursos activos del catálogo
     match /courses/{courseId} {
       allow read: if isSignedIn()
         && (isAdmin() || isCourseTeacher(courseId) || (hasRole('student') && resource.data.status == 'active'));
       allow write: if false;
     }
 
+    // Solo docente dueño del curso y admin leen preguntas (protege correct_index ante estudiantes)
     match /questions/{questionId} {
       allow read: if isSignedIn() && (isAdmin() || isCourseTeacher(resource.data.course_id));
       allow write: if false;
     }
 
+    // Inscripciones (R2): solo estudiante dueño, docente del curso o admin
+    match /enrollments/{enrollmentId} {
+      allow read: if canReadCourseStudentResource();
+      allow write: if false;
+    }
+
+    // Intentos de evaluación (R2): solo estudiante dueño, docente del curso o admin
+    match /attempts/{attemptId} {
+      allow read: if canReadCourseStudentResource();
+      allow write: if false;
+    }
+
+    // Perfiles de dominio adaptativo (R2): solo estudiante dueño, docente del curso o admin
+    match /masteryProfiles/{profileId} {
+      allow read: if canReadCourseStudentResource();
+      allow write: if false;
+    }
+
+    // Recomendaciones de refuerzo (R2/R3): solo estudiante dueño, docente del curso o admin
+    match /recommendations/{recommendationId} {
+      allow read: if canReadCourseStudentResource();
+      allow write: if false;
+    }
+
+    // Denegación por defecto para cualquier otra colección o subcolección
     match /{document=**} {
       allow read, write: if false;
     }
