@@ -55,7 +55,7 @@
 
           <fieldset class="fieldset">
             <legend class="fieldset-legend">Enunciado (mín. 5 caracteres)</legend>
-            <textarea v-model="form.statement" required minlength="5" rows="2" placeholder="Escribe la pregunta del diagnóstico..." class="textarea textarea-bordered textarea-sm w-full"></textarea>
+            <textarea v-model="form.statement" required minlength="5" rows="2" placeholder="Escribe la pregunta del examen..." class="textarea textarea-bordered textarea-sm w-full"></textarea>
           </fieldset>
 
           <div class="space-y-2">

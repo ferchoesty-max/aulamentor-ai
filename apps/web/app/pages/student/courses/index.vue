@@ -1,6 +1,5 @@
 <template>
   <div class="space-y-6">
-    <!-- Cabecera -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
         <h1 class="text-2xl font-bold">Catálogo de Cursos</h1>
@@ -11,7 +10,6 @@
       </button>
     </div>
 
-    <!-- Alerta visual controlada para respuestas 403 / 422 -->
     <div v-if="controlledError" class="alert alert-warning cb-card">
       <div class="flex-1">
         <div class="flex items-center gap-2">
@@ -59,30 +57,23 @@
 
         <div class="pt-3 border-t border-base-200 flex justify-end">
           <button
-            class="btn btn-sm"
-            :class="course.enrollment_status === 'enrolled' ? 'btn-primary' : 'btn-outline'"
-            :disabled="checkingCourseId === course.id"
-            @click="inspectCourseQuestions(course)"
+            v-if="!course.enrollment_status"
+            class="btn btn-outline btn-sm"
+            :disabled="actionCourseId === course.id"
+            @click="enrollInCourse(course)"
           >
-            <span v-if="checkingCourseId === course.id" class="loading loading-spinner loading-xs"></span>
-            {{ course.enrollment_status === 'enrolled' ? 'Ver Preguntas' : 'Probar consulta de preguntas' }}
+            <span v-if="actionCourseId === course.id" class="loading loading-spinner loading-xs"></span>
+            Inscribirme
           </button>
+          <NuxtLink
+            v-else
+            :to="`/student/courses/${course.id}/exam`"
+            class="btn btn-primary btn-sm"
+          >
+            Presentar examen
+          </NuxtLink>
         </div>
       </div>
-    </div>
-
-    <!-- Vista previa de preguntas si el alumno sí está inscrito -->
-    <div v-if="previewQuestions.length > 0" class="cb-card p-6 border-success space-y-3">
-      <div class="flex items-center justify-between">
-        <h3 class="font-bold text-base">Preguntas del curso: {{ previewCourseTitle }}</h3>
-        <button class="btn btn-ghost btn-xs" @click="previewQuestions = []">Cerrar</button>
-      </div>
-      <ul class="divide-y divide-base-200">
-        <li v-for="(q, idx) in previewQuestions" :key="q.id || idx" class="py-2.5 text-sm">
-          <span class="badge badge-xs badge-primary mr-2">{{ q.topic }}</span>
-          <span>{{ q.statement }}</span>
-        </li>
-      </ul>
     </div>
   </div>
 </template>
@@ -97,20 +88,12 @@ interface StudentCourse {
   enrollment_status?: string | null
 }
 
-interface StudentQuestion {
-  id: string
-  topic: string
-  statement: string
-}
-
 const { request } = useApi()
 
 const courses = ref<StudentCourse[]>([])
 const loading = ref(false)
-const checkingCourseId = ref<string | null>(null)
+const actionCourseId = ref<string | null>(null)
 const controlledError = ref<{ status: number; code: string; message: string } | null>(null)
-const previewQuestions = ref<StudentQuestion[]>([])
-const previewCourseTitle = ref('')
 
 const enrollmentLabel = (status?: string | null) => {
   if (status === 'enrolled') return 'Inscrito'
@@ -119,6 +102,7 @@ const enrollmentLabel = (status?: string | null) => {
 }
 
 const fetchCourses = async () => {
+  controlledError.value = null
   loading.value = true
   try {
     courses.value = await request<StudentCourse[]>('/api/v1/courses')
@@ -129,26 +113,20 @@ const fetchCourses = async () => {
   }
 }
 
-const inspectCourseQuestions = async (course: StudentCourse) => {
+const enrollInCourse = async (course: StudentCourse) => {
   controlledError.value = null
-  previewQuestions.value = []
-  checkingCourseId.value = course.id
+  actionCourseId.value = course.id
 
   try {
-    previewQuestions.value = await request<StudentQuestion[]>(`/api/v1/courses/${course.id}/questions`)
-    previewCourseTitle.value = course.title
+    await request(`/api/v1/enrollments`, {
+      method: 'POST',
+      body: { course_id: course.id }
+    })
+    await fetchCourses()
   } catch (err) {
-    const error = extractApiError(err)
-    controlledError.value = {
-      ...error,
-      message: error.code === 'NOT_ENROLLED'
-        ? 'No tienes una inscripción activa en este curso. El backend rechazó la consulta (403 NOT_ENROLLED).'
-        : error.status === 422
-          ? `El backend rechazó la solicitud (422): ${error.message}`
-          : error.message
-    }
+    controlledError.value = extractApiError(err)
   } finally {
-    checkingCourseId.value = null
+    actionCourseId.value = null
   }
 }
 

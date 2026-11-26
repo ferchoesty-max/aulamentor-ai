@@ -109,7 +109,7 @@ export const useAuthStore = defineStore('auth', {
       try {
         const { $auth } = useNuxtApp()
         const auth = $auth as Auth | null
-        if (!auth) throw new Error('Firebase Auth no está configurado en .env (usa los botones Demo)')
+        if (!auth) throw new Error('Firebase Auth no está configurado. Revisa las variables de entorno.')
 
         const cred = await signInWithEmailAndPassword(auth, email, password)
         const idToken = await cred.user.getIdToken()
@@ -125,7 +125,7 @@ export const useAuthStore = defineStore('auth', {
       try {
         const { $auth } = useNuxtApp()
         const auth = $auth as Auth | null
-        if (!auth) throw new Error('Firebase Auth no está configurado en .env (usa los botones Demo)')
+        if (!auth) throw new Error('Firebase Auth no está configurado. Revisa las variables de entorno.')
 
         const cred = await createUserWithEmailAndPassword(auth, email, password)
         if (displayName) await updateProfile(cred.user, { displayName })
